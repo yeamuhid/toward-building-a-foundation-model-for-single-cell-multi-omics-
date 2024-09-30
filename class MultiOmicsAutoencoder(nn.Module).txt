@@ -1,0 +1,40 @@
+class MultiOmicsAutoencoder(nn.Module):
+    def __init__(self, input_dim_rna, input_dim_atac, latent_dim):
+        super(MultiOmicsAutoencoder, self).__init__()
+        
+        # Encoder for RNA-seq data
+        self.encoder_rna = nn.Sequential(
+            nn.Linear(input_dim_rna, 512),
+            nn.ReLU(),
+            nn.Linear(512, latent_dim)
+        )
+        
+        # Encoder for ATAC-seq data
+        self.encoder_atac = nn.Sequential(
+            nn.Linear(input_dim_atac, 512),
+            nn.ReLU(),
+            nn.Linear(512, latent_dim)
+        )
+        
+        # Joint decoder
+        self.decoder = nn.Sequential(
+            nn.Linear(latent_dim * 2, 512),
+            nn.ReLU(),
+            nn.Linear(512, input_dim_rna + input_dim_atac)
+        )
+    
+    def forward(self, rna_input, atac_input):
+        # Encode RNA-seq and ATAC-seq separately
+        latent_rna = self.encoder_rna(rna_input)
+        latent_atac = self.encoder_atac(atac_input)
+        
+        # Concatenate latents
+        latent = torch.cat((latent_rna, latent_atac), dim=1)
+        
+        # Decode the joint representation
+        reconstructed = self.decoder(latent)
+        
+        # Split output into reconstructed RNA-seq and ATAC-seq
+        rna_output, atac_output = torch.split(reconstructed, [rna_input.shape[1], atac_input.shape[1]], dim=1)
+        
+        return rna_output, atac_output
